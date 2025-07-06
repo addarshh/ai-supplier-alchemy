@@ -6,6 +6,7 @@ import { ProcessingState } from './ProcessingState';
 import { MetricsDashboard } from './MetricsDashboard';
 import { AIInsights } from './AIInsights';
 import { useToast } from '@/hooks/use-toast';
+import axios from 'axios';
 
 type AppState = 'upload' | 'processing' | 'results';
 
@@ -22,6 +23,7 @@ interface AnalysisResults {
   aiInsights: string;
   topVendors: string;
   topSpenders: string;
+  reportPath?: string;
 }
 
 export const SupplierAnalysisTool: React.FC = () => {
@@ -49,72 +51,100 @@ export const SupplierAnalysisTool: React.FC = () => {
     setState('processing');
     setProcessingStep(0);
 
-    // Simulate processing steps (since we can't run Python backend)
-    const steps = [
-      'Loading Files',
-      'Enriching Data', 
-      'Running Analysis',
-      'AI Processing',
-      'Generating Report'
-    ];
+    try {
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('file', files.rawData!);
+      formData.append('mcc_template', files.mccTemplate!);
 
-    for (let i = 0; i < steps.length; i++) {
-      await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 1000));
-      setProcessingStep(i);
+      // Update processing steps
+      const steps = [
+        'Loading Files',
+        'Enriching Data', 
+        'Running Analysis',
+        'AI Processing',
+        'Generating Report'
+      ];
+
+      // Simulate progress updates
+      for (let i = 0; i < steps.length; i++) {
+        setProcessingStep(i);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      // Send files to backend for analysis
+      const response = await axios.post('http://localhost:5000/api/analyze', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 300000, // 5 minutes timeout
+      });
+
+      if (response.data.success) {
+        const backendResults: AnalysisResults = {
+          metrics: response.data.metrics,
+          aiInsights: response.data.aiInsights,
+          topVendors: response.data.topVendors,
+          topSpenders: response.data.topSpenders,
+          reportPath: response.data.reportPath
+        };
+
+        setResults(backendResults);
+        setState('results');
+
+        toast({
+          title: "Analysis Complete",
+          description: "Your supplier analysis has been successfully generated.",
+          variant: "default"
+        });
+      } else {
+        throw new Error(response.data.error || 'Analysis failed');
+      }
+    } catch (error: any) {
+      console.error('Analysis error:', error);
+      toast({
+        title: "Analysis Failed",
+        description: error.response?.data?.error || error.message || "An error occurred during analysis.",
+        variant: "destructive"
+      });
+      setState('upload');
     }
-
-    // Simulate analysis results
-    const mockResults: AnalysisResults = {
-      metrics: {
-        totalOpportunity: '$2,847,592.34',
-        amazonSpend: '$1,234,567.89',
-        redundantPrimeFees: '$45,780.00',
-        vendorCount: '247',
-        userCount: '156',
-        storeTrips: '1,234',
-        storeTripsCost: '$567,890.12'
-      },
-      aiInsights: `Based on the comprehensive analysis of your organization's supplier spend data, here are the key strategic opportunities:
-
-• **Massive Consolidation Opportunity**: With $2.8M in addressable spend across 247 vendors, there's significant potential for cost savings through vendor consolidation. The fragmented supplier base indicates inefficient procurement processes.
-
-• **Amazon Business Migration**: Your organization already spends $1.2M on Amazon.com, demonstrating strong adoption. Migrating this spend to Amazon Business could unlock bulk pricing, better payment terms, and enhanced procurement controls.
-
-• **Prime Membership Optimization**: $45,780 in redundant Prime fees represents immediate cost savings. Implementing centralized Amazon Business accounts would eliminate duplicate memberships while providing enhanced features.
-
-• **Digital Transformation Impact**: 1,234 store trips costing $567K in soft costs (employee time, travel) could be eliminated through strategic e-commerce adoption. This represents both direct savings and productivity gains.
-
-**Recommendation**: Prioritize onboarding your top 156 active users to Amazon Business, consolidate the top 20 vendors (representing 80% of spend), and implement procurement policies to reduce physical store visits. This could result in 15-25% cost savings plus significant operational efficiency gains.`,
-      topVendors: 'Home Depot ($456,789.12); Staples ($234,567.89); Best Buy ($189,432.10); Walmart ($167,890.45); Target ($145,678.23)',
-      topSpenders: 'John Smith ($89,456.78); Sarah Johnson ($76,543.21); Mike Chen ($65,432.19); Lisa Rodriguez ($54,321.87); David Wilson ($43,210.65)'
-    };
-
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setResults(mockResults);
-    setState('results');
-
-    toast({
-      title: "Analysis Complete",
-      description: "Your supplier analysis has been successfully generated.",
-      variant: "default"
-    });
   };
 
-  const handleDownloadReport = () => {
-    // In a real app, this would download the actual Excel file
-    toast({
-      title: "Download Started",
-      description: "Your comprehensive analysis report is being downloaded.",
-      variant: "default"
-    });
-    
-    // Create a mock download
-    const element = document.createElement('a');
-    element.href = 'data:text/plain;charset=utf-8,Mock Analysis Report - In production, this would be an Excel file with all your data and insights.';
-    element.download = `AI_Supplier_Analysis_Report_${new Date().toISOString().split('T')[0]}.txt`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
+  const handleDownloadReport = async () => {
+    try {
+      toast({
+        title: "Download Started",
+        description: "Your comprehensive analysis report is being downloaded.",
+        variant: "default"
+      });
+      
+      // Get the filename from the backend response
+      const filename = results?.reportPath?.split('/').pop() || `Supplier_Analysis_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+      
+      // Download the file from backend
+      const response = await axios.get(`http://localhost:5000/api/download/${filename}`, {
+        responseType: 'blob',
+      });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+    } catch (error: any) {
+      console.error('Download error:', error);
+      toast({
+        title: "Download Failed",
+        description: "Failed to download the report. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleStartOver = () => {
@@ -136,7 +166,7 @@ export const SupplierAnalysisTool: React.FC = () => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-foreground">AI Supplier Analysis</h1>
-                <p className="text-sm text-muted-foreground">Amazon Business Intelligence Tool</p>
+                <p className="text-sm text-muted-foreground">Amazon Supplier Analysis Intelligence Tool</p>
               </div>
             </div>
             
@@ -173,7 +203,7 @@ export const SupplierAnalysisTool: React.FC = () => {
                 Transform Your Supplier Spend Analysis
               </h2>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                Upload your transaction data and let AI generate comprehensive insights, 
+                Upload your transaction data and MCC reference template and let AI generate comprehensive insights, 
                 cost-saving opportunities, and executive-ready reports in minutes.
               </p>
             </div>

@@ -27,7 +27,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFilesChange, files }) 
 
     const droppedFiles = Array.from(e.dataTransfer.files);
     const file = droppedFiles[0];
-    
     if (file) {
       const expectedExtension = type === 'rawData' ? '.xlsx' : '.xlsb';
       if (file.name.toLowerCase().endsWith(expectedExtension)) {
@@ -85,7 +84,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFilesChange, files }) 
         onChange={(e) => handleFileInput(e, type)}
         className="hidden"
       />
-      
       <div className="flex flex-col items-center justify-center space-y-4">
         {file ? (
           <CheckCircle2 className="h-12 w-12 text-success" />
@@ -95,11 +93,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFilesChange, files }) 
             dragActive[type] ? "text-primary" : "text-muted-foreground group-hover:text-primary"
           )} />
         )}
-        
         <div className="text-center">
           <h3 className="font-semibold text-lg text-foreground mb-2">{title}</h3>
           <p className="text-muted-foreground mb-2">{description}</p>
-          
           {file ? (
             <div className="flex items-center justify-center space-x-2 text-success">
               <FileText className="h-4 w-4" />
@@ -125,36 +121,32 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFilesChange, files }) 
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold text-foreground mb-2">Upload Your Files</h2>
         <p className="text-muted-foreground">
-          Upload your transaction data and MCC reference template to begin the analysis
+          Upload your transaction data <b>and</b> MCC reference template to begin the analysis
         </p>
       </div>
-
       <div className="grid gap-6 md:grid-cols-2">
         <FileUploadZone
           type="rawData"
           title="Transaction Data"
-          description="Upload your raw transaction data file"
+          description="Upload your raw transaction data file (.xlsx)"
           acceptedFormats=".xlsx"
           file={files.rawData}
         />
-        
         <FileUploadZone
           type="mccTemplate"
           title="MCC Reference Template"
-          description="Upload your MCC reference template file"
+          description="Upload your MCC reference template file (.xlsb)"
           acceptedFormats=".xlsb"
           file={files.mccTemplate}
         />
       </div>
-
       {(!files.rawData || !files.mccTemplate) && (
-        <div className="bg-accent/50 border border-accent rounded-lg p-4 flex items-start space-x-3">
+        <div className="bg-accent/50 border border-accent rounded-lg p-4 flex items-start space-x-3 max-w-2xl mx-auto">
           <AlertCircle className="h-5 w-5 text-warning mt-0.5" />
           <div className="text-sm">
             <p className="font-medium text-foreground">Files Required</p>
             <p className="text-muted-foreground">
-              Please upload both files to proceed with the analysis. The transaction data should be in .xlsx format, 
-              and the MCC reference template should be in .xlsb format.
+              Please upload both files to proceed with the analysis. The transaction data should be in .xlsx format, and the MCC reference template should be in .xlsb format.
             </p>
           </div>
         </div>
